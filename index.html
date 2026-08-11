@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>會考試題連結抓取器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --card:#E4EDE3;      /* 答案卡底色 */
+  --card-2:#D6E2D5;
+  --ink:#1B2E22;       /* 劃記墨色 */
+  --ink-soft:#4A6353;
+  --vermilion:#B5352C; /* 監試紅印 */
+  --paper:#FAFBF8;
+  --rule:#9FB3A2;
+  --ok:#2F6B44;
+  --r:3px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--card);
+  background-image:
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(27,46,34,.045) 39px 40px);
+  color:var(--ink);
+  font-family:"Noto Sans TC",system-ui,sans-serif;
+  font-size:15px;line-height:1.7;
+  padding:0 0 64px;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:760px;margin:0 auto;padding:0 18px}
+
+/* ── 准考證式標頭 ── */
+header{
+  background:var(--ink);color:var(--card);
+  padding:26px 0 22px;margin-bottom:26px;
+  border-bottom:5px solid var(--vermilion);
+}
+.eyebrow{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--rule);margin-bottom:10px;
+}
+h1{
+  font-family:"Noto Serif TC",serif;font-weight:900;
+  font-size:clamp(27px,7.4vw,42px);line-height:1.15;margin:0 0 10px;
+  letter-spacing:.02em;
+}
+.sub{font-size:13.5px;color:#B9CBBC;margin:0;max-width:46ch}
+
+/* ── 區塊 ── */
+section{
+  background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);
+  padding:20px 18px;margin-bottom:18px;
+}
+h2{
+  font-family:"Noto Serif TC",serif;font-weight:900;font-size:17px;
+  margin:0 0 4px;display:flex;align-items:baseline;gap:9px;
+}
+h2 .n{
+  font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;
+  color:var(--vermilion);letter-spacing:.1em;
+}
+.hint{font-size:13px;color:var(--ink-soft);margin:0 0 15px}
+
+/* ── 控制項 ── */
+label.f{display:block;font-size:12.5px;font-weight:700;margin:0 0 6px;letter-spacing:.04em}
+select,input[type=text]{
+  width:100%;padding:11px 12px;font-size:15px;font-family:inherit;
+  border:1px solid var(--rule);border-radius:var(--r);background:#fff;color:var(--ink);
+}
+.row{margin-bottom:14px}
+button{
+  font-family:inherit;font-size:15px;font-weight:700;letter-spacing:.05em;
+  padding:13px 20px;border-radius:var(--r);border:1px solid var(--ink);
+  background:var(--ink);color:var(--card);cursor:pointer;width:100%;
+  transition:transform .12s ease,background .12s ease;
+}
+button:hover:not(:disabled){background:#0F1D15}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent;color:var(--ink)}
+button.ghost:hover:not(:disabled){background:var(--card-2)}
+:focus-visible{outline:2.5px solid var(--vermilion);outline-offset:2px}
+
+/* ── 簽名元素：答案卡劃記列 ── */
+.omr{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));
+  gap:7px;margin:18px 0 4px;
+}
+.bub{
+  border:1.5px solid var(--rule);border-radius:var(--r);
+  background:#fff;text-align:center;padding:9px 2px 8px;position:relative;
+}
+.bub .yr{
+  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;
+  color:var(--ink-soft);position:relative;z-index:2;
+}
+.bub .dot{
+  width:15px;height:15px;border-radius:50%;border:1.5px solid var(--rule);
+  margin:5px auto 0;position:relative;z-index:2;background:#fff;
+  transition:background .35s ease,border-color .35s ease,box-shadow .35s ease;
+}
+.bub[data-s="scan"] .dot{
+  border-color:var(--ink);
+  background:repeating-linear-gradient(45deg,var(--ink) 0 2px,#fff 2px 4px);
+}
+.bub[data-s="done"]{border-color:var(--ink);background:var(--card-2)}
+.bub[data-s="done"] .dot{background:var(--ink);border-color:var(--ink);box-shadow:0 0 0 2px rgba(27,46,34,.13)}
+.bub[data-s="done"] .yr{color:var(--ink)}
+.bub[data-s="fail"]{border-color:var(--vermilion)}
+.bub[data-s="fail"] .dot{border-color:var(--vermilion);background:#fff}
+.bub[data-s="fail"]::after{
+  content:"";position:absolute;inset:6px;
+  background:linear-gradient(45deg,transparent 46%,var(--vermilion) 46% 54%,transparent 54%),
+             linear-gradient(-45deg,transparent 46%,var(--vermilion) 46% 54%,transparent 54%);
+  opacity:.55;z-index:1;
+}
+
+/* ── 統計 ── */
+.tally{
+  display:flex;gap:20px;flex-wrap:wrap;padding:14px 0 2px;
+  border-top:1px solid var(--rule);margin-top:16px;
+}
+.tally div{font-size:12.5px;color:var(--ink-soft)}
+.tally b{
+  display:block;font-family:"JetBrains Mono",monospace;
+  font-size:25px;font-weight:700;color:var(--ink);line-height:1.2;
+}
+
+/* ── 結果 ── */
+.yearblk{border-top:1px solid var(--rule);padding:12px 0}
+.yearblk h3{
+  font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:700;
+  margin:0 0 7px;letter-spacing:.08em;
+}
+.yearblk ul{margin:0;padding:0;list-style:none;
+  display:flex;flex-wrap:wrap;gap:5px}
+.yearblk li{
+  font-size:12px;padding:3px 9px;border:1px solid var(--rule);
+  border-radius:99px;background:var(--card);
+}
+textarea{
+  width:100%;height:190px;font-family:"JetBrains Mono",monospace;font-size:11.5px;
+  line-height:1.55;padding:12px;border:1px solid var(--rule);border-radius:var(--r);
+  background:#fff;color:var(--ink);resize:vertical;
+}
+#log{
+  font-family:"JetBrains Mono",monospace;font-size:11px;line-height:1.6;
+  color:var(--ink-soft);background:var(--card-2);border-radius:var(--r);
+  padding:11px 12px;max-height:170px;overflow-y:auto;white-space:pre-wrap;
+  word-break:break-all;margin-top:14px;
+}
+#log .e{color:var(--vermilion)}
+#log .g{color:var(--ok);font-weight:700}
+.hidden{display:none}
+footer{
+  font-size:12px;color:var(--ink-soft);text-align:center;
+  padding-top:20px;border-top:1px solid var(--rule);margin-top:26px;
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">CAP · 歷屆試題</div>
+    <h1>會考試題<br>連結抓取器</h1>
+    <p class="sub">在你自己的瀏覽器裡讀取心測中心「歷屆試題」頁面，把每一份 PDF 的雲端硬碟檔案編號整理成一份清單。</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section>
+  <h2><span class="n">01</span>選擇讀取管道</h2>
+  <p class="hint">瀏覽器不能直接讀別的網站，需要一個中繼站代收。第一個讀不到就換下一個試。</p>
+  <div class="row">
+    <label class="f" for="proxy">中繼站</label>
+    <select id="proxy">
+      <option value="auto">自動輪流試（建議）</option>
+      <option value="0">allorigins</option>
+      <option value="1">codetabs</option>
+      <option value="2">corsproxy</option>
+      <option value="3">jina reader</option>
+    </select>
+  </div>
+  <div class="row">
+    <label class="f" for="start">起始頁網址</label>
+    <input type="text" id="start" value="https://cap.rcpet.edu.tw/examination.html" spellcheck="false">
+  </div>
+  <button id="go">開始讀取</button>
+</section>
+
+<section id="progress" class="hidden">
+  <h2><span class="n">02</span>讀取進度</h2>
+  <p class="hint">每一格是一個年度頁面。塗滿代表讀到了，打叉代表這個管道讀不到。</p>
+  <div class="omr" id="omr"></div>
+  <div class="tally">
+    <div>年度<b id="t-y">0</b></div>
+    <div>檔案<b id="t-f">0</b></div>
+    <div>讀不到<b id="t-e">0</b></div>
+  </div>
+  <div id="log"></div>
+</section>
+
+<section id="results" class="hidden">
+  <h2><span class="n">03</span>抓到的檔案</h2>
+  <p class="hint">確認年度和科目對得起來，再把下面那段文字複製給我。</p>
+  <div id="list"></div>
+  <label class="f" for="out" style="margin-top:16px">複製這一段</label>
+  <textarea id="out" spellcheck="false" readonly></textarea>
+  <div style="display:flex;gap:9px;margin-top:11px">
+    <button id="copy">複製全部</button>
+    <button id="dl" class="ghost">存成檔案</button>
+  </div>
+</section>
+
+<footer>資料來源：國立臺灣師範大學心理與教育測驗研究發展中心<br>本工具只讀取公開頁面，不儲存任何個人資料。</footer>
+</div>
+
+<script>
+const PROXIES=[
+  u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u),
+  u=>"https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u),
+  u=>"https://corsproxy.io/?url="+encodeURIComponent(u),
+  u=>"https://r.jina.ai/"+u
+];
+const SUBJECTS=[
+  [/聽力|聽測/,"英語（聽力）"],
+  [/閱讀/,"英語（閱讀）"],
+  [/英語|英文/,"英語（閱讀）"],
+  [/國文/,"國文"],
+  [/數學/,"數學"],
+  [/社會/,"社會"],
+  [/自然/,"自然"],
+  [/寫作/,"寫作測驗"],
+  [/答案/,"參考答案"],
+  [/說明|規準|範例|樣本|級分/,"試題說明"]
+];
+const $=id=>document.getElementById(id);
+const log=(m,c="")=>{const d=document.createElement("div");if(c)d.className=c;d.textContent=m;$("log").appendChild(d);$("log").scrollTop=1e6;};
+
+function subjectOf(t){for(const[re,name]of SUBJECTS)if(re.test(t))return name;return "其他";}
+function yearOf(t,url){
+  let m=t.match(/(\d{3})\s*年/)||url.match(/(\d{3})/);
+  if(m&&+m[1]>=90&&+m[1]<=130)return m[1];
+  return null;
+}
+function driveId(href){
+  let m=href.match(/\/file\/d\/([A-Za-z0-9_-]{18,})/)
+       ||href.match(/[?&]id=([A-Za-z0-9_-]{18,})/)
+       ||href.match(/\/document\/d\/([A-Za-z0-9_-]{18,})/)
+       ||href.match(/\/drive\/folders\/([A-Za-z0-9_-]{18,})/);
+  return m?m[1]:null;
+}
+
+async function grab(url,mode){
+  const order = mode==="auto" ? [0,1,2,3] : [+mode];
+  let lastErr="";
+  for(const i of order){
+    try{
+      const r=await fetch(PROXIES[i](url),{redirect:"follow"});
+      if(!r.ok){lastErr="HTTP "+r.status;continue;}
+      const txt=await r.text();
+      if(txt.length<300){lastErr="回應太短";continue;}
+      return txt;
+    }catch(e){lastErr=e.message||"連線失敗";}
+  }
+  throw new Error(lastErr||"全部管道都讀不到");
+}
+
+function findYearPages(html,base){
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  const urls=new Set();
+  const add=v=>{
+    if(!v||/^(#|javascript:|mailto:)/i.test(v))return;
+    try{
+      const abs=new URL(v,base).href;
+      if(/examination|exam|試題/i.test(abs)&&/rcpet\.edu\.tw/.test(abs))urls.add(abs.split("#")[0]);
+    }catch(e){}
+  };
+  doc.querySelectorAll("a[href]").forEach(a=>add(a.getAttribute("href")));
+  doc.querySelectorAll("option[value]").forEach(o=>add(o.getAttribute("value")));
+  // 頁面若用 JS 切換，補抓原始碼裡的檔名
+  (html.match(/["'][\w\-./]*examination[\w\-.]*\.html?["']/gi)||[])
+    .forEach(s=>add(s.slice(1,-1)));
+  return [...urls];
+}
+
+function extract(html,pageUrl){
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  const pageYear=yearOf(doc.body?doc.body.textContent.slice(0,600):"",pageUrl);
+  const out=[];
+  doc.querySelectorAll("a[href]").forEach(a=>{
+    const href=a.getAttribute("href")||"";
+    if(!/drive\.google|docs\.google/.test(href))return;
+    const id=driveId(href); if(!id)return;
+    if(/folders/.test(href))return;
+    let label=(a.textContent||"").replace(/\s+/g," ").trim();
+    if(!label){
+      const row=a.closest("td,li,tr,div");
+      label=row?row.textContent.replace(/\s+/g," ").trim().slice(0,40):"";
+    }
+    const ctx=(a.closest("tr,li,section,div")?.textContent||label);
+    out.push({
+      year: yearOf(label,"")||yearOf(ctx,"")||pageYear||"未知",
+      subject: subjectOf(label)!=="其他"?subjectOf(label):subjectOf(ctx),
+      label: label||"（無標題）",
+      fileId: id
+    });
+  });
+  // 純文字回應（jina reader）也撈一次
+  if(!out.length){
+    const re=/\[([^\]]{1,60})\]\((https?:\/\/[^)]*(?:drive|docs)\.google[^)]*)\)/g;let m;
+    while((m=re.exec(html))){
+      const id=driveId(m[2]); if(!id)continue;
+      out.push({year:yearOf(m[1],"")||pageYear||"未知",subject:subjectOf(m[1]),label:m[1].trim(),fileId:id});
+    }
+  }
+  return out;
+}
+
+let ALL=[];
+$("go").addEventListener("click",async()=>{
+  const btn=$("go"), mode=$("proxy").value, start=$("start").value.trim();
+  btn.disabled=true; btn.textContent="讀取中…";
+  ALL=[]; $("log").innerHTML=""; $("omr").innerHTML=""; $("list").innerHTML="";
+  $("progress").classList.remove("hidden"); $("results").classList.add("hidden");
+  let errs=0;
+
+  try{
+    log("讀取起始頁…");
+    const first=await grab(start,mode);
+    log("起始頁 "+first.length.toLocaleString()+" 字元","g");
+
+    let pages=findYearPages(first,start);
+    if(!pages.includes(start))pages.unshift(start);
+    pages=pages.slice(0,40);
+    log("找到 "+pages.length+" 個頁面");
+
+    // 建立劃記格
+    const bubs={};
+    pages.forEach((p,i)=>{
+      const lbl=(p.match(/(\d{3})/)||[])[1]||("P"+(i+1));
+      const d=document.createElement("div");
+      d.className="bub"; d.innerHTML='<div class="yr">'+lbl+'</div><div class="dot"></div>';
+      $("omr").appendChild(d); bubs[p]=d;
+    });
+
+    for(const p of pages){
+      bubs[p].dataset.s="scan";
+      try{
+        const html = p===start ? first : await grab(p,mode);
+        const rows = extract(html,p);
+        if(rows.length){
+          ALL.push(...rows);
+          bubs[p].dataset.s="done";
+          log("✓ "+p.split("/").pop()+" → "+rows.length+" 份","g");
+        }else{
+          bubs[p].dataset.s="fail"; errs++;
+          log("· "+p.split("/").pop()+" → 沒有雲端硬碟連結");
+        }
+      }catch(e){
+        bubs[p].dataset.s="fail"; errs++;
+        log("✗ "+p.split("/").pop()+" → "+e.message,"e");
+      }
+      $("t-e").textContent=errs;
+      $("t-f").textContent=ALL.length;
+      await new Promise(r=>setTimeout(r,260));
+    }
+
+    // 去重
+    const seen=new Set();
+    ALL=ALL.filter(r=>seen.has(r.fileId)?false:(seen.add(r.fileId),true));
+    render();
+  }catch(e){
+    log("讀不到起始頁："+e.message,"e");
+    log("換一個中繼站再試一次。","e");
+  }
+  btn.disabled=false; btn.textContent="重新讀取";
+});
+
+function render(){
+  const byYear={};
+  ALL.forEach(r=>(byYear[r.year]=byYear[r.year]||[]).push(r));
+  const years=Object.keys(byYear).sort((a,b)=>b.localeCompare(a));
+  $("t-y").textContent=years.length;
+  $("t-f").textContent=ALL.length;
+  $("list").innerHTML=years.map(y=>
+    '<div class="yearblk"><h3>'+y+' 年 · '+byYear[y].length+' 份</h3><ul>'+
+    byYear[y].map(r=>"<li>"+r.subject+"</li>").join("")+"</ul></div>"
+  ).join("")||'<p class="hint">沒有抓到任何檔案。換一個中繼站再試。</p>';
+  $("out").value=JSON.stringify(ALL,null,0);
+  if(ALL.length)$("results").classList.remove("hidden");
+}
+
+$("copy").addEventListener("click",async()=>{
+  const b=$("copy");
+  try{await navigator.clipboard.writeText($("out").value);}
+  catch(e){$("out").removeAttribute("readonly");$("out").select();document.execCommand("copy");$("out").setAttribute("readonly","");}
+  b.textContent="已複製 "+ALL.length+" 筆";
+  setTimeout(()=>b.textContent="複製全部",2200);
+});
+
+$("dl").addEventListener("click",()=>{
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([$("out").value],{type:"application/json"}));
+  a.download="cap-links.json"; a.click();
+});
+</script>
+</body>
+</html>
