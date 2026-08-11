@@ -192,6 +192,10 @@ footer{
     <label class="f" for="start">起始頁網址</label>
     <input type="text" id="start" value="https://cap.rcpet.edu.tw/examination.html" spellcheck="false">
   </div>
+  <div class="row" style="display:flex;align-items:center;gap:9px">
+    <input type="checkbox" id="capOnly" checked style="width:19px;height:19px;accent-color:#1B2E22;flex:0 0 auto">
+    <label for="capOnly" style="font-size:13.5px;margin:0">只抓會考（跳過國中基測）</label>
+  </div>
   <button id="go">開始讀取</button>
 </section>
 
@@ -258,17 +262,22 @@ function driveId(href){
   return m?m[1]:null;
 }
 
+const TIMEOUT_MS=9000;
 async function grab(url,mode){
   const order = mode==="auto" ? [0,1,2,3] : [+mode];
   let lastErr="";
   for(const i of order){
+    const ac=new AbortController();
+    const t=setTimeout(()=>ac.abort(),TIMEOUT_MS);
     try{
-      const r=await fetch(PROXIES[i](url),{redirect:"follow"});
+      const r=await fetch(PROXIES[i](url),{redirect:"follow",signal:ac.signal});
       if(!r.ok){lastErr="HTTP "+r.status;continue;}
       const txt=await r.text();
       if(txt.length<300){lastErr="回應太短";continue;}
       return txt;
-    }catch(e){lastErr=e.message||"連線失敗";}
+    }catch(e){
+      lastErr = e.name==="AbortError" ? "逾時 "+(TIMEOUT_MS/1000)+"秒" : (e.message||"連線失敗");
+    }finally{clearTimeout(t);}
   }
   throw new Error(lastErr||"全部管道都讀不到");
 }
@@ -339,8 +348,18 @@ $("go").addEventListener("click",async()=>{
 
     let pages=findYearPages(first,start);
     if(!pages.includes(start))pages.unshift(start);
+    if($("capOnly").checked){
+      const before=pages.length;
+      pages=pages.filter(p=>/(1[0-2]\d)/.test(p.split("/").pop())||p===start);
+      log("略過基測頁面 "+(before-pages.length)+" 個");
+    }
+    // 年度大的排前面，先驗證最近年度
+    pages.sort((a,b)=>{
+      const ga=+(a.match(/(1[0-2]\d)/)||[0,0])[1], gb=+(b.match(/(1[0-2]\d)/)||[0,0])[1];
+      return gb-ga;
+    });
     pages=pages.slice(0,40);
-    log("找到 "+pages.length+" 個頁面");
+    log("待讀 "+pages.length+" 個頁面");
 
     // 建立劃記格
     const bubs={};
@@ -363,6 +382,16 @@ $("go").addEventListener("click",async()=>{
         }else{
           bubs[p].dataset.s="fail"; errs++;
           log("· "+p.split("/").pop()+" → 沒有雲端硬碟連結");
+          if(errs<=2){
+            const d=new DOMParser().parseFromString(html,"text/html");
+            const hrefs=[...d.querySelectorAll("a[href]")]
+              .map(a=>a.getAttribute("href"))
+              .filter(h=>h&&!/^(#|javascript:|mailto:|tel:)/i.test(h))
+              .slice(0,8);
+            log("   這頁實際的連結：");
+            hrefs.forEach(h=>log("   › "+h));
+            if(!hrefs.length)log("   › （這頁一個連結都沒有，內容應該是 JS 載入的）");
+          }
         }
       }catch(e){
         bubs[p].dataset.s="fail"; errs++;
