@@ -40,7 +40,7 @@
   <div class="card">
     <label for="sid">學號</label>
     <div class="row">
-      <input id="sid" inputmode="numeric" pattern="[0-9]*" maxlength="7" placeholder="例如 1150123" autocomplete="off">
+      <input id="sid" inputmode="numeric" pattern="[0-9]*" maxlength="20" placeholder="例如 1150123" autocomplete="off">
       <button id="go">查詢</button>
     </div>
     <p class="note">資料每 10 分鐘更新一次；剛寄出申請的話，請稍後再查。</p>
@@ -93,8 +93,16 @@ function render(d) {
   }
 }
 
+// 學號整理：全形數字 ０-９ 轉半形、去掉所有空白（含全形空白）
+function normalizeSid(raw) {
+  return String(raw || '')
+    .replace(/[\uFF10-\uFF19]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[\s\u3000]+/g, '');
+}
+
 async function query() {
-  const sid = $('sid').value.trim();
+  const sid = normalizeSid($('sid').value);
+  $('sid').value = sid; // 回填整理後的學號
   if (!/^\d{6,7}$/.test(sid)) return render({ status: 'invalid' });
   if (ENDPOINT.startsWith('PASTE')) return show('<span class="badge gray">尚未啟用</span><p>查詢功能即將開放。</p>');
   $('go').disabled = true;
