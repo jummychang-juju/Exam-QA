@@ -26,6 +26,16 @@
 4. 啾咪用手機看 PR 預覽，同意後由她合併；之後規劃師把狀態改為「完成」。
 5. 退回時，規劃師把狀態改為「退回」並在單內寫明原因，開發師重做。
 
+## 實際運作方式（2026-11-23 起）
+
+- **規劃師**：在 Claude App「衛道管理員」專案裡的規劃師對話（Fable 5.2）。改完 TASKS.md 後 push 到 main，然後用 `fire_trigger` 叫醒開發師（排程任務「開發師：Exam-QA lookup」）。
+- **開發師**：雲端排程任務「開發師：Exam-QA lookup」（Opus 5.5），被規劃師叫醒，或每天 22:37 自己檢查一次（trigger id: trig_01QPTbsdzmiQaSjdCdt6xNv4）。不需要啾咪的電腦開機。
+- **開 PR 的方法**：push `task/T-xxx` 分支後，用 REST API：
+  `gh api repos/jummychang-juju/exam-qa/pulls -f title='T-xxx …' -f head='task/T-xxx' -f base='main' -f body='…'`
+  （`gh pr create` 不能用，GraphQL 被擋。）
+- **驗收**：啾咪用手機 GitHub App 看 PR，按 Merge 才會上線（GitHub Pages 只發布 main）。合併後規劃師把狀態改「完成」。
+- REPORT.md 和 TASKS.md 的狀態更新，跟程式碼一起放在同一個 PR 裡。
+
 ## 停止條件（防止失控）
 
 - 每一輪最多處理 1 張派工單，做完就停，等待下一個指令。
